@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -160,6 +161,11 @@ public sealed partial class ViewerViewModel : ObservableObject
             .ThenBy(r => r.ClipNumber, StringComparer.Ordinal)
             .ToList();
 
+        if (ReconcileMetadataKeys(built))
+        {
+            SaveMetadataIfPossible();
+        }
+
         var sections = built
             .GroupBy(r => r.SectionName)
             .Select(g => new RecordingSection { Name = g.Key, Recordings = g.ToList() })
@@ -203,7 +209,112 @@ public sealed partial class ViewerViewModel : ObservableObject
         var suffix = dir.Substring(rootFolder.Length).TrimStart('\\', '/');
         if (string.IsNullOrEmpty(suffix)) return "Root";
         var parts = suffix.Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
-        return parts.Length > 0 ? parts[0] : "Root";
+        return parts.Length > 0 ? NormalizeKeyPart(parts[0]) : "Root";
+    }
+
+    private bool ReconcileMetadataKeys(IReadOnlyList<Recording> recordings)
+    {
+        if (_metadataByKey.Count == 0 || recordings.Count == 0) return false;
+
+        var exactKeys = recordings
+            .Select(r => NormalizeMetadataKey(r.Key))
+            .ToHashSet(StringComparer.Ordinal);
+        var uniqueByGroupKey = recordings
+            .Select(r => new { RecordingKey = NormalizeMetadataKey(r.Key), GroupKey = MetadataGroupKey(r.Key) })
+            .Where(x => x.GroupKey != null)
+            .GroupBy(x => x.GroupKey!, StringComparer.Ordinal)
+            .Where(g => g.Count() == 1)
+            .ToDictionary(g => g.Key, g => g.First().RecordingKey, StringComparer.Ordinal);
+
+        var reconciled = new Dictionary<string, RecordingMetadata>(StringComparer.Ordinal);
+        var changed = false;
+
+        foreach (var entry in _metadataByKey)
+        {
+            var normalizedKey = NormalizeMetadataKey(entry.Key);
+            var targetKey = normalizedKey;
+
+            if (!exactKeys.Contains(targetKey))
+            {
+                var groupKey = MetadataGroupKey(targetKey);
+                if (groupKey != null && uniqueByGroupKey.TryGetValue(groupKey, out var matchedKey))
+                {
+                    targetKey = matchedKey;
+                }
+            }
+
+            if (!ReferenceEquals(targetKey, entry.Key) && targetKey != entry.Key)
+            {
+                changed = true;
+            }
+
+            if (reconciled.TryGetValue(targetKey, out var existing))
+            {
+                MergeMetadata(existing, entry.Value);
+                changed = true;
+                continue;
+            }
+
+            reconciled[targetKey] = CloneMetadata(entry.Value);
+        }
+
+        if (!changed) return false;
+        _metadataByKey = reconciled;
+        return true;
+    }
+
+    private static RecordingMetadata CloneMetadata(RecordingMetadata source)
+        => new()
+        {
+            Title = source.Title ?? "",
+            Note = source.Note ?? "",
+            LocationText = source.LocationText ?? "",
+            GoogleMapsUrl = source.GoogleMapsUrl ?? "",
+            Markers = source.Markers.ToList(),
+        };
+
+    private static void MergeMetadata(RecordingMetadata target, RecordingMetadata source)
+    {
+        if (string.IsNullOrWhiteSpace(target.Title) && !string.IsNullOrWhiteSpace(source.Title))
+            target.Title = source.Title;
+        if (string.IsNullOrWhiteSpace(target.Note) && !string.IsNullOrWhiteSpace(source.Note))
+            target.Note = source.Note;
+        if (string.IsNullOrWhiteSpace(target.LocationText) && !string.IsNullOrWhiteSpace(source.LocationText))
+            target.LocationText = source.LocationText;
+        if (string.IsNullOrWhiteSpace(target.GoogleMapsUrl) && !string.IsNullOrWhiteSpace(source.GoogleMapsUrl))
+            target.GoogleMapsUrl = source.GoogleMapsUrl;
+
+        foreach (var marker in source.Markers)
+        {
+            if (!target.Markers.Any(existing => Math.Abs(existing - marker) < 0.05))
+            {
+                target.Markers.Add(marker);
+            }
+        }
+        target.Markers.Sort();
+    }
+
+    private static string NormalizeMetadataKey(string key)
+    {
+        var separator = key.IndexOf('|');
+        if (separator < 0) return NormalizeKeyPart(key);
+
+        var section = NormalizeKeyPart(key[..separator]);
+        var suffix = NormalizeKeyPart(key[(separator + 1)..]);
+        return $"{section}|{suffix}";
+    }
+
+    private static string NormalizeKeyPart(string value)
+        => value.Normalize(NormalizationForm.FormC).Trim();
+
+    private static string? MetadataGroupKey(string key)
+    {
+        var separator = key.IndexOf('|');
+        if (separator < 0 || separator == key.Length - 1) return null;
+
+        var suffix = key[(separator + 1)..];
+        if (suffix.StartsWith("RAW|", StringComparison.Ordinal)) return null;
+        return NormalizeKeyPart(suffix);
     }
 
     // ---- Selection / playback ---------------------------------------------

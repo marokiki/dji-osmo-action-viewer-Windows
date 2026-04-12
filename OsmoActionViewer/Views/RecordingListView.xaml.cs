@@ -52,6 +52,10 @@ public partial class RecordingListView : UserControl
             }
             RefreshItems();
         }
+        else if (e.PropertyName == nameof(ViewerViewModel.EditingTitle))
+        {
+            RefreshSelectedItemDisplayName();
+        }
     }
 
     private void RefreshSections()
@@ -74,6 +78,14 @@ public partial class RecordingListView : UserControl
                 IsChecked = _vm.IsChecked(r.Id),
             });
         }
+    }
+
+    private void RefreshSelectedItemDisplayName()
+    {
+        if (_vm == null || _vm.SelectedRecording is null) return;
+        var item = Items.FirstOrDefault(x => x.Id == _vm.SelectedRecording.Id);
+        if (item == null) return;
+        item.DisplayName = _vm.RecordingDisplayName(_vm.SelectedRecording);
     }
 
     private void ChooseFolderButton_Click(object sender, RoutedEventArgs e) => _vm?.ChooseFolder();
@@ -150,8 +162,36 @@ public partial class RecordingListView : UserControl
 }
 
 public sealed class RecordingListItem
+    : INotifyPropertyChanged
 {
     public required string Id { get; init; }
-    public required string DisplayName { get; init; }
-    public bool IsChecked { get; set; }
+    private string _displayName = "";
+    private bool _isChecked;
+
+    public required string DisplayName
+    {
+        get => _displayName;
+        set
+        {
+            if (_displayName == value) return;
+            _displayName = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public bool IsChecked
+    {
+        get => _isChecked;
+        set
+        {
+            if (_isChecked == value) return;
+            _isChecked = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -15,10 +16,12 @@ public partial class RecordingDetailView : UserControl
 {
     private ViewerViewModel? _vm;
     private readonly DispatcherTimer _tickTimer;
+    private readonly DispatcherTimer _metadataSaveTimer;
     private bool _isPlaying;
     private bool _isUpdatingSeekBar;
     private bool _isDraggingSeekBar;
     private bool _isSeekBarPressed;
+    private bool _isSyncingMetadataFields;
 
     public RecordingDetailView()
     {
@@ -26,9 +29,12 @@ public partial class RecordingDetailView : UserControl
         _tickTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
         _tickTimer.Tick += OnTick;
         _tickTimer.Start();
+        _metadataSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(700) };
+        _metadataSaveTimer.Tick += MetadataSaveTimer_Tick;
         Loaded += OnLoaded;
         SeekBar.AddHandler(Thumb.DragStartedEvent, new DragStartedEventHandler(SeekBar_DragStarted));
         SeekBar.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler(SeekBar_DragCompleted));
+        UpdateMapsButtonState();
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -63,13 +69,29 @@ public partial class RecordingDetailView : UserControl
                 }
                 break;
             case nameof(ViewerViewModel.EditingTitle):
-                if (TitleBox.Text != _vm.EditingTitle) TitleBox.Text = _vm.EditingTitle;
+                if (TitleBox.Text != _vm.EditingTitle)
+                {
+                    _isSyncingMetadataFields = true;
+                    TitleBox.Text = _vm.EditingTitle;
+                    _isSyncingMetadataFields = false;
+                }
                 break;
             case nameof(ViewerViewModel.EditingLocationText):
-                if (LocationBox.Text != _vm.EditingLocationText) LocationBox.Text = _vm.EditingLocationText;
+                if (LocationBox.Text != _vm.EditingLocationText)
+                {
+                    _isSyncingMetadataFields = true;
+                    LocationBox.Text = _vm.EditingLocationText;
+                    _isSyncingMetadataFields = false;
+                }
                 break;
             case nameof(ViewerViewModel.EditingGoogleMapsUrl):
-                if (GMapsBox.Text != _vm.EditingGoogleMapsUrl) GMapsBox.Text = _vm.EditingGoogleMapsUrl;
+                if (GMapsBox.Text != _vm.EditingGoogleMapsUrl)
+                {
+                    _isSyncingMetadataFields = true;
+                    GMapsBox.Text = _vm.EditingGoogleMapsUrl;
+                    _isSyncingMetadataFields = false;
+                    UpdateMapsButtonState();
+                }
                 break;
             case nameof(ViewerViewModel.ErrorMessage):
                 ErrorText.Text = _vm.ErrorMessage ?? "";
@@ -80,9 +102,12 @@ public partial class RecordingDetailView : UserControl
     private void SyncFields()
     {
         if (_vm == null) return;
+        _isSyncingMetadataFields = true;
         TitleBox.Text = _vm.EditingTitle;
         LocationBox.Text = _vm.EditingLocationText;
         GMapsBox.Text = _vm.EditingGoogleMapsUrl;
+        _isSyncingMetadataFields = false;
+        UpdateMapsButtonState();
         RefreshMarkers();
     }
 
@@ -234,13 +259,59 @@ public partial class RecordingDetailView : UserControl
         UpdateTimeAndSeekBar(target, total);
     }
 
-    private void SaveMetaButton_Click(object sender, RoutedEventArgs e)
+    private void MetadataField_TextChanged(object sender, TextChangedEventArgs e)
     {
-        if (_vm == null) return;
+        if (_isSyncingMetadataFields) return;
+        UpdateMapsButtonState();
+        ScheduleMetadataAutoSave();
+    }
+
+    private void MetadataSaveTimer_Tick(object? sender, EventArgs e)
+    {
+        _metadataSaveTimer.Stop();
+        SaveMetadataFromFields();
+    }
+
+    private void ScheduleMetadataAutoSave()
+    {
+        if (_vm?.SelectedRecording == null) return;
+        _metadataSaveTimer.Stop();
+        _metadataSaveTimer.Start();
+    }
+
+    private void SaveMetadataFromFields()
+    {
+        if (_vm == null || _vm.SelectedRecording == null) return;
         _vm.EditingTitle = TitleBox.Text;
         _vm.EditingLocationText = LocationBox.Text;
         _vm.EditingGoogleMapsUrl = GMapsBox.Text;
         _vm.PersistEditingMetadata();
+        UpdateMapsButtonState();
+    }
+
+    private void UpdateMapsButtonState()
+    {
+        OpenGMapsButton.IsEnabled = _vm?.ValidatedGoogleMapsUrl() != null ||
+                                    (!string.IsNullOrWhiteSpace(GMapsBox.Text) &&
+                                     Uri.TryCreate(GMapsBox.Text, UriKind.Absolute, out _));
+    }
+
+    private void SaveMetaButton_Click(object sender, RoutedEventArgs e)
+    {
+        SaveMetadataFromFields();
+    }
+
+    private void OpenGMapsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_vm == null) return;
+        SaveMetadataFromFields();
+        var url = _vm.ValidatedGoogleMapsUrl();
+        if (url == null) return;
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = url,
+            UseShellExecute = true,
+        });
     }
 
     private void AddMarkerButton_Click(object sender, RoutedEventArgs e)

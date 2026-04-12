@@ -77,12 +77,29 @@
 
             <GroupBox Grid.Row="3" Header="Title / Location" Margin="0,0,0,12">
                 <StackPanel>
-                    <TextBox x:Name="TitleBox" Margin="0,2" />
-                    <TextBox x:Name="LocationBox" Margin="0,2" />
-                    <TextBox x:Name="GMapsBox" Margin="0,2" />
-                    <Button x:Name="SaveMetaButton" Content="Save Metadata" HorizontalAlignment="Left"
-                            Margin="0,8,0,0" Click="SaveMetaButton_Click" />
-                    </StackPanel>
+                    <TextBlock Text="Title" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBox x:Name="TitleBox" Margin="0,0,0,10" TextChanged="MetadataField_TextChanged" />
+
+                    <TextBlock Text="Location" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBox x:Name="LocationBox" Margin="0,0,0,10" TextChanged="MetadataField_TextChanged" />
+
+                    <TextBlock Text="Google Maps URL" FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="GMapsBox"
+                                 Grid.Column="0"
+                                 Margin="0,0,8,0"
+                                 TextChanged="MetadataField_TextChanged" />
+                        <Button x:Name="OpenGMapsButton"
+                                Grid.Column="1"
+                                Content="Open"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="OpenGMapsButton_Click" />
+                    </Grid>
+                </StackPanel>
             </GroupBox>
 
             <GroupBox Grid.Row="4" Header="Markers" Margin="0,0,0,12">

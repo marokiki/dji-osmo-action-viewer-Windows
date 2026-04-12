@@ -7,8 +7,8 @@
         <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFFFF" />
         <SolidColorBrush x:Key="SurfaceAltBrush" Color="#F1F3F5" />
         <SolidColorBrush x:Key="SurfaceBorderBrush" Color="#D6DBE1" />
-        <SolidColorBrush x:Key="PrimaryBrush" Color="#5E738A" />
-        <SolidColorBrush x:Key="PrimaryBrushHover" Color="#4F647B" />
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#4E79A7" />
+        <SolidColorBrush x:Key="PrimaryBrushHover" Color="#3F678E" />
         <SolidColorBrush x:Key="TextBrush" Color="#1E2933" />
         <SolidColorBrush x:Key="MutedTextBrush" Color="#6B7682" />
         <SolidColorBrush x:Key="DangerBrush" Color="#A66A5B" />
@@ -32,6 +32,8 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="12,8" />
             <Setter Property="Margin" Value="0" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
@@ -61,14 +63,15 @@
         </Style>
 
         <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
-            <Setter Property="Background" Value="{StaticResource SurfaceAltBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource SurfaceBorderBrush}" />
+            <Setter Property="Foreground" Value="#1E2933" />
+            <Setter Property="Background" Value="#F7F9FB" />
+            <Setter Property="BorderBrush" Value="#B8C4D0" />
         </Style>
 
         <Style x:Key="DangerButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Background" Value="{StaticResource DangerBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource DangerBrush}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="#C05A47" />
+            <Setter Property="BorderBrush" Value="#C05A47" />
         </Style>
 
         <Style TargetType="TextBox">

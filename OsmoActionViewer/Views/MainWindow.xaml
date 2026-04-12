@@ -1,0 +1,36 @@
+<Window x:Class="OsmoActionViewer.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:OsmoActionViewer.ViewModels"
+        xmlns:views="clr-namespace:OsmoActionViewer.Views"
+        Title="DJI Osmo Action Viewer"
+        Width="1400" Height="860"
+        MinWidth="1180" MinHeight="760"
+        KeyDown="Window_KeyDown">
+    <Window.Resources>
+        <vm:ViewerViewModel x:Key="Vm" />
+    </Window.Resources>
+    <Grid DataContext="{StaticResource Vm}" Margin="18">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="420" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Border Grid.Column="0"
+                Margin="0,0,14,0"
+                Background="{StaticResource SurfaceBrush}"
+                BorderBrush="{StaticResource SurfaceBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="18"
+                Padding="8">
+            <views:RecordingListView x:Name="ListView" />
+        </Border>
+        <Border Grid.Column="1"
+                Background="{StaticResource SurfaceBrush}"
+                BorderBrush="{StaticResource SurfaceBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="18"
+                Padding="8">
+            <views:RecordingDetailView x:Name="DetailView" />
+        </Border>
+    </Grid>
+</Window>

@@ -766,10 +766,18 @@ public sealed partial class ViewerViewModel : ObservableObject
 
     // ---- Export (ffmpeg) ---------------------------------------------------
 
+    private bool EnsureFfmpegAvailable(string operation)
+    {
+        if (_ffmpeg.IsAvailable) return true;
+        ErrorMessage = $"ffmpeg.exe not found — cannot {operation}. Put ffmpeg.exe in the app's ffmpeg folder or install ffmpeg in PATH.";
+        return false;
+    }
+
     public async Task ExportHighlightsFromMarkersAsync(string outputPath)
     {
         var recording = SelectedRecording;
         if (recording == null || IsExporting) return;
+        if (!EnsureFfmpegAvailable("export highlights")) return;
 
         var markers = Markers(recording);
         if (markers.Count == 0) { ErrorMessage = "No markers found for this video."; return; }
@@ -788,12 +796,17 @@ public sealed partial class ViewerViewModel : ObservableObject
             var ok = await ExportMarkerHighlightsAsync(recording, markers, clipDuration, title, outputPath);
             if (!ok) ErrorMessage = "Highlight export failed.";
         }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Highlight export failed: {ex.Message}";
+        }
         finally { IsExporting = false; }
     }
 
     public async Task ExportHighlightsFromCheckedAsync(string outputPath)
     {
         if (IsExporting) return;
+        if (!EnsureFfmpegAvailable("export highlights")) return;
         if (CheckedRecordingIds.Count == 0) { ErrorMessage = "Select videos first (checkbox mode)."; return; }
 
         if (!double.TryParse((MarkerClipDurationSecondsText ?? "").Trim(),
@@ -818,6 +831,10 @@ public sealed partial class ViewerViewModel : ObservableObject
             var ok = await ExportMultiHighlightsAsync(requests, clipDuration, outputPath);
             if (!ok) ErrorMessage = "Highlight export failed.";
         }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Highlight export failed: {ex.Message}";
+        }
         finally { IsExporting = false; }
     }
 
@@ -825,6 +842,7 @@ public sealed partial class ViewerViewModel : ObservableObject
     {
         var recording = SelectedRecording;
         if (recording == null || IsExporting) return;
+        if (!EnsureFfmpegAvailable("export clip")) return;
 
         if (!double.TryParse(ExportStartSecondsText.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var start) ||
             !double.TryParse(ExportEndSecondsText.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var end))
@@ -864,11 +882,16 @@ public sealed partial class ViewerViewModel : ObservableObject
             var (exit, err) = await _ffmpeg.RunAsync(args);
             if (exit != 0) ErrorMessage = $"Export failed: {err}";
         }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Export failed: {ex.Message}";
+        }
         finally { IsExporting = false; }
     }
 
     private async Task<string?> EnsurePlayableInputAsync(Recording recording)
     {
+        if (!EnsureFfmpegAvailable("prepare the export input")) return null;
         if (recording.SegmentPaths.Count == 1) return recording.SegmentPaths[0];
         var temp = Path.Combine(Path.GetTempPath(), $"osmo_merged_{recording.Key.GetHashCode():X8}.mp4");
         if (File.Exists(temp)) return temp;

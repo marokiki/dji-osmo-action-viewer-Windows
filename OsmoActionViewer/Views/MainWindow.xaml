@@ -10,12 +10,13 @@
     <Window.Resources>
         <vm:ViewerViewModel x:Key="Vm" />
     </Window.Resources>
-    <Grid DataContext="{StaticResource Vm}" Margin="18">
+    <Grid x:Name="RootGrid" DataContext="{StaticResource Vm}" Margin="18">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="420" />
-            <ColumnDefinition Width="*" />
+            <ColumnDefinition x:Name="LibraryColumn" Width="420" />
+            <ColumnDefinition x:Name="DetailColumn" Width="*" />
         </Grid.ColumnDefinitions>
-        <Border Grid.Column="0"
+        <Border x:Name="LibraryPanel"
+                Grid.Column="0"
                 Margin="0,0,14,0"
                 Background="{StaticResource SurfaceBrush}"
                 BorderBrush="{StaticResource SurfaceBorderBrush}"
@@ -24,7 +25,8 @@
                 Padding="8">
             <views:RecordingListView x:Name="ListView" />
         </Border>
-        <Border Grid.Column="1"
+        <Border x:Name="DetailPanel"
+                Grid.Column="1"
                 Background="{StaticResource SurfaceBrush}"
                 BorderBrush="{StaticResource SurfaceBorderBrush}"
                 BorderThickness="1"

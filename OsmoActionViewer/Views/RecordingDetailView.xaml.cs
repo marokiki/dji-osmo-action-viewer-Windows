@@ -23,8 +23,7 @@ public partial class RecordingDetailView : UserControl
     private bool _isSeekBarPressed;
     private bool _isSyncingMetadataFields;
     private bool _isMuted;
-    private double _lastNonZeroVolume = 0.8;
-    private bool _isPlayerFocused;
+    private double _lastNonZeroVolume = 0.2;
 
     public RecordingDetailView()
     {
@@ -355,17 +354,25 @@ public partial class RecordingDetailView : UserControl
         SeekTo(_vm.CurrentMarkers[MarkerList.SelectedIndex]);
     }
 
-    private void MaximizePlayerButton_Click(object sender, RoutedEventArgs e)
+    public void SetFullscreenVisualState(bool isFullscreen, double playerHeight)
     {
-        _isPlayerFocused = !_isPlayerFocused;
-        var collapsed = _isPlayerFocused ? Visibility.Collapsed : Visibility.Visible;
+        var collapsed = isFullscreen ? Visibility.Collapsed : Visibility.Visible;
         MetadataGroup.Visibility = collapsed;
         MarkersGroup.Visibility = collapsed;
         HighlightExportGroup.Visibility = collapsed;
         ClipRangeGroup.Visibility = collapsed;
         StatusPanel.Visibility = collapsed;
-        Media.Height = _isPlayerFocused ? 760 : 420;
-        MaximizePlayerButton.Content = _isPlayerFocused ? "Exit Focus" : "Focus Player";
+        DetailsScrollViewer.Visibility = isFullscreen ? Visibility.Collapsed : Visibility.Visible;
+        Media.Height = playerHeight;
+        MaximizePlayerButton.Content = isFullscreen ? "Exit Full Screen" : "Full Screen";
+    }
+
+    private void MaximizePlayerButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (Window.GetWindow(this) is MainWindow mainWindow)
+        {
+            mainWindow.TogglePlayerFullscreen();
+        }
     }
 
     private void MetadataField_TextChanged(object sender, TextChangedEventArgs e)

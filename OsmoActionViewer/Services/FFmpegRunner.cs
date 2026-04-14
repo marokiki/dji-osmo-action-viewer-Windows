@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Globalization;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -14,6 +15,8 @@ namespace OsmoActionViewer.Services;
 /// </summary>
 public sealed class FFmpegRunner
 {
+    public sealed record ProgressUpdate(double? Fraction, string? Message);
+
     public string? FFmpegPath { get; }
 
     public FFmpegRunner()
@@ -24,7 +27,10 @@ public sealed class FFmpegRunner
 
     public bool IsAvailable => !string.IsNullOrWhiteSpace(FFmpegPath);
 
-    public async Task<(int ExitCode, string StdErr)> RunAsync(IEnumerable<string> args)
+    public async Task<(int ExitCode, string StdErr)> RunAsync(
+        IEnumerable<string> args,
+        IProgress<ProgressUpdate>? progress = null,
+        TimeSpan? expectedDuration = null)
     {
         if (!IsAvailable)
         {
@@ -41,14 +47,61 @@ public sealed class FFmpegRunner
         };
         foreach (var a in args) psi.ArgumentList.Add(a);
 
-        using var proc = new Process { StartInfo = psi };
+        using var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
         var stderr = new StringBuilder();
-        proc.ErrorDataReceived += (_, e) => { if (e.Data != null) stderr.AppendLine(e.Data); };
-        proc.Start();
-        proc.BeginErrorReadLine();
-        proc.BeginOutputReadLine();
-        await proc.WaitForExitAsync();
-        return (proc.ExitCode, stderr.ToString());
+        var stdout = new StringBuilder();
+
+        proc.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data != null) stderr.AppendLine(e.Data);
+        };
+        proc.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data == null) return;
+            stdout.AppendLine(e.Data);
+            TryReportProgress(e.Data, expectedDuration, progress);
+        };
+
+        try
+        {
+            proc.Start();
+            proc.BeginErrorReadLine();
+            proc.BeginOutputReadLine();
+            await proc.WaitForExitAsync();
+            return (proc.ExitCode, stderr.Length > 0 ? stderr.ToString() : stdout.ToString());
+        }
+        catch (Exception ex)
+        {
+            return (-1, ex.Message);
+        }
+    }
+
+    private static void TryReportProgress(
+        string line,
+        TimeSpan? expectedDuration,
+        IProgress<ProgressUpdate>? progress)
+    {
+        if (progress == null || string.IsNullOrWhiteSpace(line)) return;
+
+        var separator = line.IndexOf('=');
+        if (separator <= 0 || separator == line.Length - 1) return;
+
+        var key = line[..separator];
+        var value = line[(separator + 1)..];
+
+        switch (key)
+        {
+            case "out_time_ms" when expectedDuration.HasValue && expectedDuration.Value.TotalMilliseconds > 0:
+                if (long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var microseconds))
+                {
+                    var fraction = Math.Clamp(microseconds / 1000.0 / expectedDuration.Value.TotalMilliseconds, 0, 1);
+                    progress.Report(new ProgressUpdate(fraction, null));
+                }
+                break;
+            case "progress":
+                progress.Report(new ProgressUpdate(value == "end" ? 1.0 : null, value == "end" ? "Finalizing..." : "Encoding..."));
+                break;
+        }
     }
 
     private static string? ResolveExecutablePath(string baseDir, string fileName)

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
@@ -78,6 +79,14 @@ public partial class RecordingListView : UserControl
                 IsChecked = _vm.IsChecked(r.Id),
             });
         }
+
+        if (_vm.SelectedRecordingId == null)
+        {
+            RecordingListBox.SelectedItem = null;
+            return;
+        }
+
+        RecordingListBox.SelectedItem = Items.FirstOrDefault(x => x.Id == _vm.SelectedRecordingId);
     }
 
     private void RefreshSelectedItemDisplayName()
@@ -144,20 +153,27 @@ public partial class RecordingListView : UserControl
 
     private async void ExportHighlightsButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_vm == null) return;
-        if (_vm.CheckedRecordingIds.Count == 0)
+        try
         {
-            MessageBox.Show("Select videos via checkbox first.");
-            return;
+            if (_vm == null) return;
+            if (_vm.CheckedRecordingIds.Count == 0)
+            {
+                MessageBox.Show("Select videos via checkbox first.");
+                return;
+            }
+            var dlg = new SaveFileDialog
+            {
+                Title = "Export Highlights (Selected Videos)",
+                FileName = "selected_videos_highlights.mp4",
+                Filter = "MP4 (*.mp4)|*.mp4|QuickTime (*.mov)|*.mov",
+            };
+            if (dlg.ShowDialog() != true) return;
+            await _vm.ExportHighlightsFromCheckedAsync(dlg.FileName);
         }
-        var dlg = new SaveFileDialog
+        catch (Exception ex)
         {
-            Title = "Export Highlights (Selected Videos)",
-            FileName = "selected_videos_highlights.mp4",
-            Filter = "MP4 (*.mp4)|*.mp4|QuickTime (*.mov)|*.mov",
-        };
-        if (dlg.ShowDialog() != true) return;
-        await _vm.ExportHighlightsFromCheckedAsync(dlg.FileName);
+            if (_vm != null) _vm.ErrorMessage = $"Highlight export failed: {ex.Message}";
+        }
     }
 }
 

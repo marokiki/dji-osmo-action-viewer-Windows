@@ -26,6 +26,20 @@ dotnet build
 dotnet run --project OsmoActionViewer
 ```
 
+### MSIX パッケージ
+
+```
+./scripts/build_msix.sh 0.2.0.0
+```
+
+生成物:
+
+- `dist/msix/DJI-Osmo-Action-Viewer-<version>.msix`
+- `Packaging/MSIX/DJIOsmoActionViewer-TestCert.cer`
+
+自己署名証明書で署名しているため、インストール前に `.cer` を
+`CurrentUser\TrustedPeople` へ追加してください。
+
 ### FFmpeg の同梱
 
 `OsmoActionViewer/ffmpeg/` に `ffmpeg.exe` と `ffprobe.exe` を配置して

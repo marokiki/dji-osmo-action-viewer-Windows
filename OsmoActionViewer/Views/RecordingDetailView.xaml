@@ -118,7 +118,9 @@
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="Clip seconds:" VerticalAlignment="Center" Margin="0,0,4,0" />
                     <TextBox x:Name="ClipDurationBox" Width="60" Text="10" Margin="0,0,8,0" />
-                    <Button x:Name="ExportHighlightsButton" Content="Export Highlights" Click="ExportHighlightsButton_Click" />
+                    <Button x:Name="ExportHighlightsButton"
+                            Content="Export Highlights"
+                            Click="ExportHighlightsButton_Click" />
                 </StackPanel>
             </GroupBox>
 
@@ -128,11 +130,26 @@
                     <Button x:Name="StartNowButton" Content="now" Click="StartNowButton_Click" Margin="0,0,8,0" Style="{StaticResource SecondaryButtonStyle}" />
                     <TextBox x:Name="EndBox" Width="60" Margin="0,0,4,0" />
                     <Button x:Name="EndNowButton" Content="now" Click="EndNowButton_Click" Margin="0,0,8,0" Style="{StaticResource SecondaryButtonStyle}" />
-                    <Button x:Name="ExportRangeButton" Content="Export clip" Click="ExportRangeButton_Click" />
+                    <Button x:Name="ExportRangeButton"
+                            Content="Export clip"
+                            Click="ExportRangeButton_Click" />
                 </StackPanel>
             </GroupBox>
 
-            <TextBlock x:Name="ErrorText" Grid.Row="7" Foreground="Red" Margin="0,0,0,4" TextWrapping="Wrap" />
+            <StackPanel Grid.Row="7">
+                <TextBlock Text="{Binding ExportStatusMessage}"
+                           Foreground="{StaticResource MutedTextBrush}"
+                           Margin="0,0,0,6"
+                           TextWrapping="Wrap" />
+                <ProgressBar x:Name="ExportProgressBar"
+                             Minimum="0"
+                             Maximum="1"
+                             Height="10"
+                             Margin="0,0,0,8"
+                             Value="{Binding ExportProgressValue}"
+                             IsIndeterminate="{Binding ExportProgressIndeterminate}" />
+                <TextBlock x:Name="ErrorText" Foreground="Red" Margin="0,0,0,4" TextWrapping="Wrap" />
+            </StackPanel>
         </Grid>
     </ScrollViewer>
 </UserControl>

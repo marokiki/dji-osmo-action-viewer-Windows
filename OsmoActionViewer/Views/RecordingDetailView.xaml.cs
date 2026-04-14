@@ -45,6 +45,7 @@ public partial class RecordingDetailView : UserControl
         _vm.PropertyChanged += Vm_PropertyChanged;
         _vm.CurrentMarkers.CollectionChanged += (_, _) => RefreshMarkers();
         SyncFields();
+        ApplyCurrentMediaUri();
     }
 
     private void Vm_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -53,20 +54,7 @@ public partial class RecordingDetailView : UserControl
         switch (e.PropertyName)
         {
             case nameof(ViewerViewModel.CurrentMediaUri):
-                if (_vm.CurrentMediaUri != null)
-                {
-                    ResetSeekBar();
-                    Media.Source = _vm.CurrentMediaUri;
-                    Media.Play();
-                    _isPlaying = true;
-                }
-                else
-                {
-                    Media.Stop();
-                    Media.Source = null;
-                    _isPlaying = false;
-                    ResetSeekBar();
-                }
+                ApplyCurrentMediaUri();
                 break;
             case nameof(ViewerViewModel.EditingTitle):
                 if (TitleBox.Text != _vm.EditingTitle)
@@ -96,6 +84,9 @@ public partial class RecordingDetailView : UserControl
             case nameof(ViewerViewModel.ErrorMessage):
                 ErrorText.Text = _vm.ErrorMessage ?? "";
                 break;
+            case nameof(ViewerViewModel.IsExporting):
+                UpdateExportUiState();
+                break;
         }
     }
 
@@ -108,7 +99,39 @@ public partial class RecordingDetailView : UserControl
         GMapsBox.Text = _vm.EditingGoogleMapsUrl;
         _isSyncingMetadataFields = false;
         UpdateMapsButtonState();
+        UpdateExportUiState();
         RefreshMarkers();
+    }
+
+    private void ApplyCurrentMediaUri()
+    {
+        if (_vm == null) return;
+
+        if (_vm.CurrentMediaUri != null)
+        {
+            ResetSeekBar();
+            Media.Stop();
+            Media.Source = null;
+            Media.Source = _vm.CurrentMediaUri;
+            Media.Position = TimeSpan.Zero;
+            Media.Play();
+            _isPlaying = true;
+            return;
+        }
+
+        Media.Stop();
+        Media.Source = null;
+        _isPlaying = false;
+        ResetSeekBar();
+    }
+
+    private void UpdateExportUiState()
+    {
+        var isExporting = _vm?.IsExporting == true;
+        ExportHighlightsButton.IsEnabled = !isExporting;
+        ExportRangeButton.IsEnabled = !isExporting;
+        StartNowButton.IsEnabled = !isExporting;
+        EndNowButton.IsEnabled = !isExporting;
     }
 
     private void RefreshMarkers()
@@ -336,16 +359,23 @@ public partial class RecordingDetailView : UserControl
 
     private async void ExportHighlightsButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_vm == null || _vm.SelectedRecording == null) return;
-        _vm.MarkerClipDurationSecondsText = ClipDurationBox.Text;
-        var dlg = new SaveFileDialog
+        try
         {
-            Title = "Export Marker Highlights",
-            FileName = _vm.DefaultHighlightsFileName(_vm.SelectedRecording),
-            Filter = "MP4 (*.mp4)|*.mp4",
-        };
-        if (dlg.ShowDialog() != true) return;
-        await _vm.ExportHighlightsFromMarkersAsync(dlg.FileName);
+            if (_vm == null || _vm.SelectedRecording == null) return;
+            _vm.MarkerClipDurationSecondsText = ClipDurationBox.Text;
+            var dlg = new SaveFileDialog
+            {
+                Title = "Export Marker Highlights",
+                FileName = _vm.DefaultHighlightsFileName(_vm.SelectedRecording),
+                Filter = "MP4 (*.mp4)|*.mp4",
+            };
+            if (dlg.ShowDialog() != true) return;
+            await _vm.ExportHighlightsFromMarkersAsync(dlg.FileName);
+        }
+        catch (Exception ex)
+        {
+            if (_vm != null) _vm.ErrorMessage = $"Highlight export failed: {ex.Message}";
+        }
     }
 
     private void StartNowButton_Click(object sender, RoutedEventArgs e)
@@ -362,17 +392,24 @@ public partial class RecordingDetailView : UserControl
 
     private async void ExportRangeButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_vm == null || _vm.SelectedRecording == null) return;
-        _vm.ExportStartSecondsText = StartBox.Text;
-        _vm.ExportEndSecondsText = EndBox.Text;
-        if (!double.TryParse(StartBox.Text, out var s) || !double.TryParse(EndBox.Text, out var en)) return;
-        var dlg = new SaveFileDialog
+        try
         {
-            Title = "Export Clipped Video",
-            FileName = _vm.DefaultRangeFileName(_vm.SelectedRecording, s, en),
-            Filter = "MP4 (*.mp4)|*.mp4",
-        };
-        if (dlg.ShowDialog() != true) return;
-        await _vm.ExportSelectedRangeAsync(dlg.FileName);
+            if (_vm == null || _vm.SelectedRecording == null) return;
+            _vm.ExportStartSecondsText = StartBox.Text;
+            _vm.ExportEndSecondsText = EndBox.Text;
+            if (!double.TryParse(StartBox.Text, out var s) || !double.TryParse(EndBox.Text, out var en)) return;
+            var dlg = new SaveFileDialog
+            {
+                Title = "Export Clipped Video",
+                FileName = _vm.DefaultRangeFileName(_vm.SelectedRecording, s, en),
+                Filter = "MP4 (*.mp4)|*.mp4",
+            };
+            if (dlg.ShowDialog() != true) return;
+            await _vm.ExportSelectedRangeAsync(dlg.FileName);
+        }
+        catch (Exception ex)
+        {
+            if (_vm != null) _vm.ErrorMessage = $"Export failed: {ex.Message}";
+        }
     }
 }

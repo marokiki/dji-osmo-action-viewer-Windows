@@ -51,6 +51,9 @@ public sealed partial class ViewerViewModel : ObservableObject
     [ObservableProperty] private string exportStartSecondsText = "";
     [ObservableProperty] private string exportEndSecondsText = "";
     [ObservableProperty] private bool isExporting;
+    [ObservableProperty] private string exportStatusMessage = "";
+    [ObservableProperty] private double exportProgressValue;
+    [ObservableProperty] private bool exportProgressIndeterminate;
     [ObservableProperty] private Uri? currentMediaUri;
 
     public ObservableCollection<Recording> Recordings { get; } = new();
@@ -704,13 +707,26 @@ public sealed partial class ViewerViewModel : ObservableObject
     // ---- Export helpers ---------------------------------------------------
 
     public string DefaultHighlightsFileName(Recording recording)
-        => $"{SafeName(RecordingDisplayName(recording))}_highlights.mp4";
+        => $"{SanitizeFileName(SafeName(RecordingDisplayName(recording)))}_highlights.mp4";
 
     public string DefaultRangeFileName(Recording recording, double start, double end)
-        => $"{SafeName(RecordingDisplayName(recording))}_{(int)start}-{(int)end}.mp4";
+        => $"{SanitizeFileName(SafeName(RecordingDisplayName(recording)))}_{(int)start}-{(int)end}.mp4";
 
     private static string SafeName(string input)
         => input.Replace('/', '-').Replace(':', '-').Replace('\\', '-');
+
+    private static string SanitizeFileName(string input)
+    {
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var builder = new StringBuilder(input.Length);
+        foreach (var ch in input)
+        {
+            builder.Append(invalidChars.Contains(ch) ? '_' : ch);
+        }
+
+        var sanitized = builder.ToString().Trim();
+        return string.IsNullOrWhiteSpace(sanitized) ? "export" : sanitized;
+    }
 
     public string? ValidatedGoogleMapsUrl()
     {
@@ -745,6 +761,9 @@ public sealed partial class ViewerViewModel : ObservableObject
         EditingGoogleMapsUrl = "";
         ExportStartSecondsText = "";
         ExportEndSecondsText = "";
+        ExportStatusMessage = "";
+        ExportProgressValue = 0;
+        ExportProgressIndeterminate = false;
         CurrentPlaybackSeconds = 0;
         CurrentMediaUri = null;
         CurrentMarkers.Clear();
@@ -770,7 +789,60 @@ public sealed partial class ViewerViewModel : ObservableObject
     {
         if (_ffmpeg.IsAvailable) return true;
         ErrorMessage = $"ffmpeg.exe not found — cannot {operation}. Put ffmpeg.exe in the app's ffmpeg folder or install ffmpeg in PATH.";
+        ExportStatusMessage = ErrorMessage;
         return false;
+    }
+
+    private void BeginExport(string status, bool indeterminate = true, double progressValue = 0)
+    {
+        IsExporting = true;
+        ErrorMessage = null;
+        ExportStatusMessage = status;
+        ExportProgressIndeterminate = indeterminate;
+        ExportProgressValue = progressValue;
+    }
+
+    private void UpdateExportProgress(string status, double? progressValue = null, bool? indeterminate = null)
+    {
+        ExportStatusMessage = status;
+        if (progressValue.HasValue) ExportProgressValue = Math.Clamp(progressValue.Value, 0, 1);
+        if (indeterminate.HasValue) ExportProgressIndeterminate = indeterminate.Value;
+    }
+
+    private void FinishExport(string status)
+    {
+        ExportStatusMessage = status;
+        ExportProgressIndeterminate = false;
+        ExportProgressValue = 1;
+        IsExporting = false;
+    }
+
+    private void FailExport(string message)
+    {
+        ErrorMessage = message;
+        ExportStatusMessage = message;
+        ExportProgressIndeterminate = false;
+        IsExporting = false;
+    }
+
+    private IProgress<FFmpegRunner.ProgressUpdate> CreateProgressReporter(
+        string statusPrefix,
+        double segmentStart,
+        double segmentWeight)
+    {
+        return new Progress<FFmpegRunner.ProgressUpdate>(update =>
+        {
+            if (update.Fraction.HasValue)
+            {
+                ExportProgressIndeterminate = false;
+                ExportProgressValue = Math.Clamp(segmentStart + (update.Fraction.Value * segmentWeight), 0, 1);
+            }
+
+            if (!string.IsNullOrWhiteSpace(update.Message))
+            {
+                ExportStatusMessage = $"{statusPrefix} {update.Message}".Trim();
+            }
+        });
     }
 
     public async Task ExportHighlightsFromMarkersAsync(string outputPath)
@@ -788,19 +860,22 @@ public sealed partial class ViewerViewModel : ObservableObject
             ErrorMessage = "Highlight clip duration must be a number greater than 0."; return;
         }
 
-        IsExporting = true;
-        ErrorMessage = null;
+        BeginExport("Preparing highlight export...");
         try
         {
             var title = RecordingDisplayName(recording);
             var ok = await ExportMarkerHighlightsAsync(recording, markers, clipDuration, title, outputPath);
-            if (!ok) ErrorMessage = "Highlight export failed.";
+            if (!ok)
+            {
+                FailExport(ErrorMessage ?? "Highlight export failed.");
+                return;
+            }
+            FinishExport("Highlights export completed.");
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Highlight export failed: {ex.Message}";
+            FailExport($"Highlight export failed: {ex.Message}");
         }
-        finally { IsExporting = false; }
     }
 
     public async Task ExportHighlightsFromCheckedAsync(string outputPath)
@@ -824,18 +899,21 @@ public sealed partial class ViewerViewModel : ObservableObject
         }
         if (requests.Count == 0) { ErrorMessage = "No markers found on selected videos."; return; }
 
-        IsExporting = true;
-        ErrorMessage = null;
+        BeginExport("Preparing highlight export...");
         try
         {
             var ok = await ExportMultiHighlightsAsync(requests, clipDuration, outputPath);
-            if (!ok) ErrorMessage = "Highlight export failed.";
+            if (!ok)
+            {
+                FailExport(ErrorMessage ?? "Highlight export failed.");
+                return;
+            }
+            FinishExport("Highlights export completed.");
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Highlight export failed: {ex.Message}";
+            FailExport($"Highlight export failed: {ex.Message}");
         }
-        finally { IsExporting = false; }
     }
 
     public async Task ExportSelectedRangeAsync(string outputPath)
@@ -854,19 +932,25 @@ public sealed partial class ViewerViewModel : ObservableObject
             ErrorMessage = "End seconds must be greater than start seconds."; return;
         }
 
-        IsExporting = true;
-        ErrorMessage = null;
+        BeginExport("Preparing clip export...");
         try
         {
             var input = await EnsurePlayableInputAsync(recording);
-            if (input == null) { ErrorMessage = "Failed to prepare input video."; return; }
+            if (input == null)
+            {
+                FailExport(ErrorMessage ?? "Failed to prepare input video.");
+                return;
+            }
 
+            var clipDuration = TimeSpan.FromSeconds(end - start);
             var args = new List<string>
             {
                 "-y",
                 "-ss", start.ToString("F3", CultureInfo.InvariantCulture),
                 "-to", end.ToString("F3", CultureInfo.InvariantCulture),
                 "-i", input,
+                "-progress", "pipe:1",
+                "-nostats",
                 "-c:v", "libx264", "-c:a", "aac",
                 "-movflags", "+faststart",
             };
@@ -879,14 +963,22 @@ public sealed partial class ViewerViewModel : ObservableObject
             }
             args.Add(outputPath);
 
-            var (exit, err) = await _ffmpeg.RunAsync(args);
-            if (exit != 0) ErrorMessage = $"Export failed: {err}";
+            UpdateExportProgress("Encoding clip...", 0, false);
+            var (exit, err) = await _ffmpeg.RunAsync(
+                args,
+                CreateProgressReporter("Encoding clip...", 0, 1),
+                clipDuration);
+            if (exit != 0)
+            {
+                FailExport($"Export failed: {err}");
+                return;
+            }
+            FinishExport("Clip export completed.");
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Export failed: {ex.Message}";
+            FailExport($"Export failed: {ex.Message}");
         }
-        finally { IsExporting = false; }
     }
 
     private async Task<string?> EnsurePlayableInputAsync(Recording recording)
@@ -895,15 +987,21 @@ public sealed partial class ViewerViewModel : ObservableObject
         if (recording.SegmentPaths.Count == 1) return recording.SegmentPaths[0];
         var temp = Path.Combine(Path.GetTempPath(), $"osmo_merged_{recording.Key.GetHashCode():X8}.mp4");
         if (File.Exists(temp)) return temp;
+        UpdateExportProgress("Preparing multi-segment input...", null, true);
         var listPath = FFmpegRunner.WriteConcatListFile(recording.SegmentPaths);
         try
         {
-            var (exit, _) = await _ffmpeg.RunAsync(new[]
+            var (exit, err) = await _ffmpeg.RunAsync(new[]
             {
                 "-y", "-f", "concat", "-safe", "0",
                 "-i", listPath, "-c", "copy", temp
             });
-            return exit == 0 ? temp : null;
+            if (exit != 0)
+            {
+                ErrorMessage = $"Failed to prepare input video: {err}";
+                return null;
+            }
+            return temp;
         }
         finally { try { File.Delete(listPath); } catch { } }
     }
@@ -919,27 +1017,38 @@ public sealed partial class ViewerViewModel : ObservableObject
         try
         {
             int idx = 0;
-            foreach (var marker in markers.OrderBy(m => m))
+            var orderedMarkers = markers.OrderBy(m => m).ToList();
+            foreach (var marker in orderedMarkers)
             {
                 var start = Math.Max(0, marker);
                 var clipPath = Path.Combine(Path.GetTempPath(),
                     $"osmo_hl_{recording.Key.GetHashCode():X8}_{idx++}.mp4");
                 var drawtext = BuildDrawTextFilter(title);
+                var currentIndex = idx;
+                var segmentStart = (currentIndex - 1d) / (orderedMarkers.Count + 1d);
+                var segmentWeight = 1d / (orderedMarkers.Count + 1d);
                 var args = new List<string>
                 {
                     "-y",
                     "-ss", start.ToString("F3", CultureInfo.InvariantCulture),
                     "-i", input,
                     "-t", clipDuration.ToString("F3", CultureInfo.InvariantCulture),
+                    "-progress", "pipe:1",
+                    "-nostats",
                     "-vf", drawtext,
                     "-c:v", "libx264", "-c:a", "aac",
                     clipPath
                 };
-                var (exit, err) = await _ffmpeg.RunAsync(args);
+                UpdateExportProgress($"Encoding highlight {currentIndex}/{orderedMarkers.Count}...", segmentStart, false);
+                var (exit, err) = await _ffmpeg.RunAsync(
+                    args,
+                    CreateProgressReporter($"Encoding highlight {currentIndex}/{orderedMarkers.Count}...", segmentStart, segmentWeight),
+                    TimeSpan.FromSeconds(clipDuration));
                 if (exit != 0) { ErrorMessage = err; return false; }
                 clipPaths.Add(clipPath);
             }
 
+            UpdateExportProgress("Joining highlight clips...", orderedMarkers.Count / (orderedMarkers.Count + 1d), true);
             return await ConcatClipsAsync(clipPaths, outputPath);
         }
         finally
@@ -956,6 +1065,8 @@ public sealed partial class ViewerViewModel : ObservableObject
         try
         {
             int idx = 0;
+            var totalClipCount = requests.Sum(r => r.markers.Count);
+            var completedClipCount = 0;
             foreach (var (rec, markers) in requests)
             {
                 var input = await EnsurePlayableInputAsync(rec);
@@ -968,21 +1079,31 @@ public sealed partial class ViewerViewModel : ObservableObject
                     var clipPath = Path.Combine(Path.GetTempPath(),
                         $"osmo_hlm_{idx++}_{rec.Key.GetHashCode():X8}.mp4");
                     var drawtext = BuildDrawTextFilter(title);
+                    var segmentStart = completedClipCount / (double)(totalClipCount + 1);
+                    var segmentWeight = 1d / (totalClipCount + 1);
                     var args = new List<string>
                     {
                         "-y",
                         "-ss", start.ToString("F3", CultureInfo.InvariantCulture),
                         "-i", input,
                         "-t", clipDuration.ToString("F3", CultureInfo.InvariantCulture),
+                        "-progress", "pipe:1",
+                        "-nostats",
                         "-vf", drawtext,
                         "-c:v", "libx264", "-c:a", "aac",
                         clipPath
                     };
-                    var (exit, err) = await _ffmpeg.RunAsync(args);
+                    UpdateExportProgress($"Encoding highlight {completedClipCount + 1}/{totalClipCount}...", segmentStart, false);
+                    var (exit, err) = await _ffmpeg.RunAsync(
+                        args,
+                        CreateProgressReporter($"Encoding highlight {completedClipCount + 1}/{totalClipCount}...", segmentStart, segmentWeight),
+                        TimeSpan.FromSeconds(clipDuration));
                     if (exit != 0) { ErrorMessage = err; return false; }
                     clipPaths.Add(clipPath);
+                    completedClipCount++;
                 }
             }
+            UpdateExportProgress("Joining highlight clips...", totalClipCount / (double)(totalClipCount + 1), true);
             return await ConcatClipsAsync(clipPaths, outputPath);
         }
         finally
@@ -997,12 +1118,15 @@ public sealed partial class ViewerViewModel : ObservableObject
         var listPath = FFmpegRunner.WriteConcatListFile(clipPaths);
         try
         {
+            UpdateExportProgress("Joining highlight clips...", null, true);
             var (exit, err) = await _ffmpeg.RunAsync(new[]
             {
                 "-y", "-f", "concat", "-safe", "0",
                 "-i", listPath, "-c", "copy", outputPath
             });
             if (exit != 0) { ErrorMessage = err; return false; }
+            ExportProgressIndeterminate = false;
+            ExportProgressValue = 1;
             return true;
         }
         finally { try { File.Delete(listPath); } catch { } }

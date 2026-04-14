@@ -17,6 +17,7 @@ public partial class RecordingListView : UserControl
     public ObservableCollection<RecordingListItem> Items { get; } = new();
 
     private ViewerViewModel? _vm;
+    private bool _isRefreshingSectionCombo;
 
     public RecordingListView()
     {
@@ -62,8 +63,10 @@ public partial class RecordingListView : UserControl
     private void RefreshSections()
     {
         if (_vm == null) return;
+        _isRefreshingSectionCombo = true;
         SectionCombo.ItemsSource = _vm.Sections.Select(s => s.Name).ToList();
         SectionCombo.SelectedItem = _vm.SelectedSectionName;
+        _isRefreshingSectionCombo = false;
     }
 
     private void RefreshItems()
@@ -102,7 +105,8 @@ public partial class RecordingListView : UserControl
     private void SectionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_vm == null) return;
-        if (SectionCombo.SelectedItem is string s && s != _vm.SelectedSectionName)
+        if (_isRefreshingSectionCombo) return;
+        if (SectionCombo.SelectedItem is string s)
         {
             _vm.SelectedSectionName = s;
             if (_vm.FolderPath != null)
@@ -110,6 +114,11 @@ public partial class RecordingListView : UserControl
                 _vm.LoadRecordings(_vm.FolderPath, s);
             }
         }
+    }
+
+    private void SectionCombo_DropDownClosed(object sender, EventArgs e)
+    {
+        _vm?.RefreshCurrentFolder();
     }
 
     private void RecordingListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

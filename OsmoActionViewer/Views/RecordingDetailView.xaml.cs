@@ -22,6 +22,8 @@ public partial class RecordingDetailView : UserControl
     private bool _isDraggingSeekBar;
     private bool _isSeekBarPressed;
     private bool _isSyncingMetadataFields;
+    private bool _isMuted;
+    private double _lastNonZeroVolume = 0.8;
 
     public RecordingDetailView()
     {
@@ -34,6 +36,9 @@ public partial class RecordingDetailView : UserControl
         Loaded += OnLoaded;
         SeekBar.AddHandler(Thumb.DragStartedEvent, new DragStartedEventHandler(SeekBar_DragStarted));
         SeekBar.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler(SeekBar_DragCompleted));
+        Media.Volume = _lastNonZeroVolume;
+        VolumeSlider.Value = _lastNonZeroVolume;
+        UpdateVolumeUi();
         UpdateMapsButtonState();
     }
 
@@ -114,6 +119,7 @@ public partial class RecordingDetailView : UserControl
             Media.Source = null;
             Media.Source = _vm.CurrentMediaUri;
             Media.Position = TimeSpan.Zero;
+            ApplyVolumeToMedia();
             Media.Play();
             _isPlaying = true;
             return;
@@ -280,6 +286,51 @@ public partial class RecordingDetailView : UserControl
         Media.Position = TimeSpan.FromSeconds(target);
         if (_vm != null) _vm.CurrentPlaybackSeconds = target;
         UpdateTimeAndSeekBar(target, total);
+    }
+
+    private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        var volume = Math.Clamp(VolumeSlider.Value, 0, 1);
+        if (volume > 0)
+        {
+            _lastNonZeroVolume = volume;
+            _isMuted = false;
+        }
+        else
+        {
+            _isMuted = true;
+        }
+
+        ApplyVolumeToMedia();
+        UpdateVolumeUi();
+    }
+
+    private void MuteButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isMuted || VolumeSlider.Value <= 0)
+        {
+            var restoreVolume = _lastNonZeroVolume <= 0 ? 0.8 : _lastNonZeroVolume;
+            VolumeSlider.Value = restoreVolume;
+            return;
+        }
+
+        _isMuted = true;
+        Media.Volume = 0;
+        VolumeSlider.Value = 0;
+        UpdateVolumeUi();
+    }
+
+    private void ApplyVolumeToMedia()
+    {
+        Media.IsMuted = _isMuted;
+        Media.Volume = _isMuted ? 0 : Math.Clamp(VolumeSlider.Value, 0, 1);
+    }
+
+    private void UpdateVolumeUi()
+    {
+        var percent = (int)Math.Round(Math.Clamp(VolumeSlider.Value, 0, 1) * 100);
+        MuteButton.Content = _isMuted || percent == 0 ? "Unmute" : "Mute";
+        VolumeText.Text = $"{percent}%";
     }
 
     private void MetadataField_TextChanged(object sender, TextChangedEventArgs e)

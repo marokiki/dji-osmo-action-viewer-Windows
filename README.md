@@ -29,16 +29,23 @@ dotnet run --project OsmoActionViewer
 ### MSIX パッケージ
 
 ```
-./scripts/build_msix.sh 0.2.0.0
+export MSIX_SIGN_PFX_PATH=/absolute/path/to/your-codesign-certificate.pfx
+export MSIX_SIGN_PFX_PASSWORD='your-password'
+./scripts/build_msix.sh 0.2.1.0
 ```
 
 生成物:
 
 - `dist/msix/DJI-Osmo-Action-Viewer-<version>.msix`
-- `Packaging/MSIX/DJIOsmoActionViewer-TestCert.cer`
 
-自己署名証明書で署名しているため、インストール前に `.cer` を
-`CurrentUser\TrustedPeople` へ追加してください。
+本番用のコード署名証明書 (`.pfx`) で署名します。`AppxManifest.xml` の
+`Publisher` と、証明書 Subject は一致している必要があります。
+
+任意:
+
+```
+export MSIX_TIMESTAMP_URL=http://timestamp.digicert.com
+```
 
 ### FFmpeg の同梱
 

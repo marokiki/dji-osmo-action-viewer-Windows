@@ -30,7 +30,10 @@
             </Border>
 
             <TextBlock Text="Section" FontWeight="SemiBold" Margin="0,0,0,6" />
-            <ComboBox x:Name="SectionCombo" Margin="0,0,0,12" SelectionChanged="SectionCombo_SelectionChanged" />
+            <ComboBox x:Name="SectionCombo"
+                      Margin="0,0,0,12"
+                      DropDownClosed="SectionCombo_DropDownClosed"
+                      SelectionChanged="SectionCombo_SelectionChanged" />
 
             <UniformGrid Columns="2" Margin="0,0,0,8">
                 <Button x:Name="SelectAllButton"

@@ -92,6 +92,12 @@ public sealed partial class ViewerViewModel : ObservableObject
         }
     }
 
+    public void RefreshCurrentFolder()
+    {
+        if (string.IsNullOrWhiteSpace(FolderPath) || !Directory.Exists(FolderPath)) return;
+        LoadRecordings(FolderPath, SelectedSectionName);
+    }
+
     private void SetFolder(string path)
     {
         FolderPath = path;
@@ -103,6 +109,8 @@ public sealed partial class ViewerViewModel : ObservableObject
 
     public void LoadRecordings(string folder, string? preferredSectionName)
     {
+        var previousSelectedKey = SelectedRecording?.Key;
+
         try
         {
             _metadataByKey = _metadataStore.Load(folder);
@@ -201,8 +209,11 @@ public sealed partial class ViewerViewModel : ObservableObject
             return;
         }
 
-        var first2 = section.Recordings.First();
-        Play(first2.Id);
+        var recordingToPlay = previousSelectedKey == null
+            ? null
+            : section.Recordings.FirstOrDefault(r => r.Key == previousSelectedKey);
+        recordingToPlay ??= section.Recordings.First();
+        Play(recordingToPlay.Id);
     }
 
     private static string SectionName(string filePath, string rootFolder)

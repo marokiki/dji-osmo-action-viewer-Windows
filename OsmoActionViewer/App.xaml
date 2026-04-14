@@ -7,11 +7,11 @@
         <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFFFF" />
         <SolidColorBrush x:Key="SurfaceAltBrush" Color="#F1F3F5" />
         <SolidColorBrush x:Key="SurfaceBorderBrush" Color="#D6DBE1" />
-        <SolidColorBrush x:Key="PrimaryBrush" Color="#4E79A7" />
-        <SolidColorBrush x:Key="PrimaryBrushHover" Color="#3F678E" />
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#EDF2F7" />
+        <SolidColorBrush x:Key="PrimaryBrushHover" Color="#E2E8F0" />
         <SolidColorBrush x:Key="TextBrush" Color="#1E2933" />
         <SolidColorBrush x:Key="MutedTextBrush" Color="#6B7682" />
-        <SolidColorBrush x:Key="DangerBrush" Color="#A66A5B" />
+        <SolidColorBrush x:Key="DangerBrush" Color="#F7E5E0" />
         <SolidColorBrush x:Key="SelectionBrush" Color="#E9EDF1" />
 
         <Style TargetType="Window">
@@ -26,9 +26,9 @@
         </Style>
 
         <Style TargetType="Button">
-            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Foreground" Value="#1E2933" />
             <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="#C6D0DA" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="12,8" />
             <Setter Property="Margin" Value="0" />
@@ -63,15 +63,15 @@
         </Style>
 
         <Style x:Key="SecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Foreground" Value="#1E2933" />
-            <Setter Property="Background" Value="#F7F9FB" />
-            <Setter Property="BorderBrush" Value="#B8C4D0" />
+            <Setter Property="Foreground" Value="#17212B" />
+            <Setter Property="Background" Value="#FAFBFC" />
+            <Setter Property="BorderBrush" Value="#CDD6DF" />
         </Style>
 
         <Style x:Key="DangerButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="Background" Value="#C05A47" />
-            <Setter Property="BorderBrush" Value="#C05A47" />
+            <Setter Property="Foreground" Value="#5C2F26" />
+            <Setter Property="Background" Value="{StaticResource DangerBrush}" />
+            <Setter Property="BorderBrush" Value="#D9B6AE" />
         </Style>
 
         <Style TargetType="TextBox">

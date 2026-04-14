@@ -24,6 +24,7 @@ public partial class RecordingDetailView : UserControl
     private bool _isSyncingMetadataFields;
     private bool _isMuted;
     private double _lastNonZeroVolume = 0.8;
+    private bool _isPlayerFocused;
 
     public RecordingDetailView()
     {
@@ -179,6 +180,20 @@ public partial class RecordingDetailView : UserControl
         }
     }
 
+    public void SeekTo(double seconds)
+    {
+        if (Media.Source == null) return;
+        var target = Math.Max(0, seconds);
+        if (Media.NaturalDuration.HasTimeSpan)
+        {
+            target = Math.Min(target, Media.NaturalDuration.TimeSpan.TotalSeconds);
+            UpdateTimeAndSeekBar(target, Media.NaturalDuration.TimeSpan.TotalSeconds);
+        }
+
+        Media.Position = TimeSpan.FromSeconds(target);
+        if (_vm != null) _vm.CurrentPlaybackSeconds = target;
+    }
+
     public void TogglePlayPause()
     {
         if (Media.Source == null) return;
@@ -331,6 +346,26 @@ public partial class RecordingDetailView : UserControl
         var percent = (int)Math.Round(Math.Clamp(VolumeSlider.Value, 0, 1) * 100);
         MuteButton.Content = _isMuted || percent == 0 ? "Unmute" : "Mute";
         VolumeText.Text = $"{percent}%";
+    }
+
+    private void MarkerList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_vm == null || MarkerList.SelectedIndex < 0) return;
+        if (MarkerList.SelectedIndex >= _vm.CurrentMarkers.Count) return;
+        SeekTo(_vm.CurrentMarkers[MarkerList.SelectedIndex]);
+    }
+
+    private void MaximizePlayerButton_Click(object sender, RoutedEventArgs e)
+    {
+        _isPlayerFocused = !_isPlayerFocused;
+        var collapsed = _isPlayerFocused ? Visibility.Collapsed : Visibility.Visible;
+        MetadataGroup.Visibility = collapsed;
+        MarkersGroup.Visibility = collapsed;
+        HighlightExportGroup.Visibility = collapsed;
+        ClipRangeGroup.Visibility = collapsed;
+        StatusPanel.Visibility = collapsed;
+        Media.Height = _isPlayerFocused ? 760 : 420;
+        MaximizePlayerButton.Content = _isPlayerFocused ? "Exit Focus" : "Focus Player";
     }
 
     private void MetadataField_TextChanged(object sender, TextChangedEventArgs e)

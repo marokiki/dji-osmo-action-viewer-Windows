@@ -66,6 +66,11 @@
                                     Content="+10s &gt;&gt;"
                                     Style="{StaticResource SecondaryButtonStyle}"
                                     Click="Forward10Button_Click" />
+                            <Button x:Name="MaximizePlayerButton"
+                                    Content="Focus Player"
+                                    Margin="8,0,0,0"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    Click="MaximizePlayerButton_Click" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal"
                                     DockPanel.Dock="Right"
@@ -96,7 +101,7 @@
                 </Grid>
             </Border>
 
-            <GroupBox Grid.Row="3" Header="Title / Location" Margin="0,0,0,12">
+            <GroupBox x:Name="MetadataGroup" Grid.Row="3" Header="Title / Location" Margin="0,0,0,12">
                 <StackPanel>
                     <TextBlock Text="Title" FontWeight="SemiBold" Margin="0,0,0,4" />
                     <TextBox x:Name="TitleBox" Margin="0,0,0,10" TextChanged="MetadataField_TextChanged" />
@@ -123,19 +128,22 @@
                 </StackPanel>
             </GroupBox>
 
-            <GroupBox Grid.Row="4" Header="Markers" Margin="0,0,0,12">
+            <GroupBox x:Name="MarkersGroup" Grid.Row="4" Header="Markers" Margin="0,0,0,12">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <TextBox x:Name="MarkerSecondsBox" Width="80" Margin="0,0,4,0" />
                         <Button x:Name="AddMarkerButton" Content="Add from input" Click="AddMarkerButton_Click" Margin="0,0,8,0" Style="{StaticResource SecondaryButtonStyle}" />
                         <Button x:Name="AddNowMarkerButton" Content="Add at current time" Click="AddNowMarkerButton_Click" />
                     </StackPanel>
-                    <ListBox x:Name="MarkerList" Height="80" Margin="0,6,0,0" />
+                    <ListBox x:Name="MarkerList"
+                             Height="80"
+                             Margin="0,6,0,0"
+                             SelectionChanged="MarkerList_SelectionChanged" />
                     <Button x:Name="RemoveMarkerButton" Content="Remove selected" Click="RemoveMarkerButton_Click" HorizontalAlignment="Left" Margin="0,8,0,0" Style="{StaticResource SecondaryButtonStyle}" />
                 </StackPanel>
             </GroupBox>
 
-            <GroupBox Grid.Row="5" Header="Highlight Export" Margin="0,0,0,12">
+            <GroupBox x:Name="HighlightExportGroup" Grid.Row="5" Header="Highlight Export" Margin="0,0,0,12">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="Clip seconds:" VerticalAlignment="Center" Margin="0,0,4,0" />
                     <TextBox x:Name="ClipDurationBox" Width="60" Text="10" Margin="0,0,8,0" />
@@ -145,7 +153,7 @@
                 </StackPanel>
             </GroupBox>
 
-            <GroupBox Grid.Row="6" Header="Clip Range Export" Margin="0,0,0,12">
+            <GroupBox x:Name="ClipRangeGroup" Grid.Row="6" Header="Clip Range Export" Margin="0,0,0,12">
                 <StackPanel Orientation="Horizontal">
                     <TextBox x:Name="StartBox" Width="60" Margin="0,0,4,0" />
                     <Button x:Name="StartNowButton" Content="now" Click="StartNowButton_Click" Margin="0,0,8,0" Style="{StaticResource SecondaryButtonStyle}" />
@@ -157,7 +165,7 @@
                 </StackPanel>
             </GroupBox>
 
-            <StackPanel Grid.Row="7">
+            <StackPanel x:Name="StatusPanel" Grid.Row="7">
                 <TextBlock Text="{Binding ExportStatusMessage}"
                            Foreground="{StaticResource MutedTextBrush}"
                            Margin="0,0,0,6"
